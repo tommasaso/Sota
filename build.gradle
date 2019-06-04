@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+}
+
+group 'Server'
+version '1.0'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    //compile group: 'org.apache.commons', name: 'commons-io', version: '1.3.2'
+    compile group: 'commons-io', name: 'commons-io', version: '2.6'
+
+    /*implementation 'com.google.firebase:firebase-admin:6.8.0'
+    implementation 'com.google.firebase:firebase-database:16.1.0'
+    implementation 'com.google.firebase:firebase-core:16.0.7'
+    implementation 'com.google.firebase:firebase-database:16.0.6'
+    implementation 'com.google.firebase:firebase-auth:11.0.4'*/
+    compile group: 'com.google.cloud', name: 'google-cloud-firestore', version: '1.6.0'
+    compile group: 'com.google.auth', name: 'google-auth-library-oauth2-http', version: '0.15.0'
+    compile group: 'com.google.api-client', name: 'google-api-client-appengine', version: '1.29.0'
+    compile group: 'com.google.api-client', name: 'google-api-client-gson', version: '1.29.0'
+    implementation 'com.google.firebase:firebase-core:16.0.1'
+    implementation 'com.google.firebase:firebase-messaging:17.1.0'
+    implementation 'com.crashlytics.sdk.android:crashlytics:2.9.4'
+    implementation 'com.google.firebase:firebase-appindexing:16.0.1'
+    implementation 'com.google.firebase:firebase-invites:16.0.1'
+    compile group: 'io.netty', name: 'netty-tcnative-boringssl-static', version: '2.0.25.Final'
+
+
+
+
+
+
+
+
+    implementation fileTree(include: ['*.jar'], dir: 'lib')
+}
