@@ -1,12 +1,8 @@
-import com.google.api.core.ApiFuture;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.FirestoreOptions;
-import com.google.cloud.firestore.WriteResult;
+
 
 import jp.vstone.RobotLib.CPlayWave;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 
 import java.io.*;
 import java.net.*;
@@ -16,6 +12,8 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.Format;
+import java.net.NetworkInterface;
+
 import java.util.Enumeration;
 import java.util.concurrent.ExecutionException;
 
@@ -23,7 +21,6 @@ import javax.sound.sampled.*;
 
 
 public class Server {
-    static Firestore firestoreDB = null;
     static String vocalInterfaceIP = "172.20.31.106";
     static Integer vocalInterfacePort = 8450;
 
@@ -31,6 +28,22 @@ public class Server {
     public static void main(String args[]) throws IOException {
         /*initDB();
         publicIP();*/
+
+        String sotaIP = getIP();
+        pucbishIP(sotaIP);
+        Long end = System.currentTimeMillis() + 10000;
+        String VI;
+        while((VI = getVocalInterfaceIP()).equals("")){
+            vocalInterfaceIP = VI;
+            if(System.currentTimeMillis() > end) {
+                break;
+            }
+        }
+
+        if(args.length != 0){
+            vocalInterfaceIP = args[0];
+        }
+
         SenderMic senderMic = new SenderMic();
         senderMic.start();
         ListenerResponse listenerResponse = new ListenerResponse();
@@ -43,12 +56,6 @@ public class Server {
             TargetDataLine microphone;
             SourceDataLine speakers;
 
-            //Print the Local IP address
-            try {
-                printIP();
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
-            }
 
             try {
                 // Open the socket connection
@@ -74,6 +81,7 @@ public class Server {
 
                 // Target data line captures the microphone's audio stream
                 TargetDataLine targetDataLine = (TargetDataLine) AudioSystem.getLine(targetInfo);
+                targetDataLine.close();
                 targetDataLine.open(audioFormat);
                 System.out.println("Start speaking...Press Ctrl-C to stop");
                 targetDataLine.start();
@@ -148,57 +156,91 @@ public class Server {
         }
     }
 
-    static void printIP() throws UnknownHostException {
-        /*InetAddress ip = null;
-        ip = InetAddress.getLoopbackAddress();
-        System.out.println("Local IP: "+ip);*/
-        //InetAddress localhost = InetAddress.getLocalHost();
-        //System.out.println("System IP Address : " +localhost);
+    static String getIP(){
+        String ip;
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                // filters out 127.0.0.1 and inactive interfaces
+                if (iface.isLoopback() || !iface.isUp())
+                    continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while(addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    ip = addr.getHostAddress();
+                    System.out.println(iface.getDisplayName() + " " + ip);
+                    return ip;
+                }
+            }
+            return "failed ip acquisition";
+        } catch (SocketException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 
-    /*static void publicIP() {
-        URL url = null;
-        BufferedReader br = null;
+    static void pucbishIP(String ip){
+        URL url2 = null;
         try {
-            url = new URL("http://checkip.amazonaws.com/");
-            br = new BufferedReader(new InputStreamReader(url.openStream()));
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
+            url2 = new URL("https://vocalinterface.firebaseio.com/installation_test_name/VocalInterface.json");
+            HttpURLConnection conn2 = (HttpURLConnection) url2.openConnection();
+
+            //conn2.requestMethod = "PATCH"
+            conn2.setRequestProperty("X-HTTP-Method-Override", "PATCH");
+            conn2.setDoOutput(true);
+            conn2.setRequestProperty("Content-Type", "application/json");
+            conn2.setRequestProperty("Accept", "application/json");
+            String input = "{\"SotaHasIP\": \""+ip +"\"}";
+
+            OutputStream os = conn2.getOutputStream();
+            os.write(input.getBytes());
+            os.flush();
+
+            if (conn2.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new RuntimeException("Failed : HTTP error code : "
+                        + conn2.getResponseCode());
+            }
+
+            BufferedReader br = new BufferedReader(new InputStreamReader((conn2.getInputStream())));
+
+            String output;
+            System.out.println("Output from Server .... \n");
+            while ((output = br.readLine()) != null) {
+                //System.out.println(output);
+                System.out.println("SotaIP published: "+ ip);
+            }
+            conn2.disconnect();
+
+
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        DocumentReference docRef = firestoreDB.collection("Home").document("Sota");
-        ApiFuture<WriteResult> future = null;
-        WriteResult result = null;
-        try {
-            future = docRef.update("hasIP", "pippo");
-            result = future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        }
     }
 
+    static String getVocalInterfaceIP(){
 
-    static void initDB() {
-        // Fetch the service account key JSON file contents
-        FileInputStream serviceAccount = null;
+        HttpURLConnection conn = null;
         try {
-            serviceAccount = new FileInputStream("/home/root/test/vocalinterface-firebase-adminsdk-3ycvz-8068c39321.json");
-            //serviceAccount = new FileInputStream("/Users/tommasaso/Documents/Tesi/IntalliJ/vocalinterface-firebase-adminsdk-3ycvz-8068c39321.json");
+            StringBuilder result = new StringBuilder();
+            URL url = new URL("https://vocalinterface.firebaseio.com/installation_test_name/VocalInterface/ViHasIP.json");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
 
-            FirestoreOptions optionsFirestore = FirestoreOptions
-                    .newBuilder()
-                    .setTimestampsInSnapshotsEnabled(true)
-                    .build();
-
-            firestoreDB = optionsFirestore.getService();
-
+            StringWriter writer = new StringWriter();
+            IOUtils.copy(conn.getInputStream(), writer);
+            String theString = writer.toString().replace("\"", "");
+            System.out.println("Vocal InterfaceIP"+theString);
+            return theString;
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return "";
 
-    }*/
+    }
+
 
 }
 
